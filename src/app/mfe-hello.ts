@@ -1,0 +1,68 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Input,
+  ViewEncapsulation,
+  signal,
+  computed,
+  inject,
+} from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { ZardButtonComponent } from './shared/components/button/button.component';
+import { environment } from 'src/environments/environment';
+
+type ShellContext = {
+  assetBase: string;
+  theme: 'light' | 'dark';
+  capabilities?: { navigate: (to: string) => void };
+  user?: { id: string };
+  locale?: string;
+};
+
+@Component({
+  standalone: true,
+  selector: 'mfe-hello-root',
+  imports: [ZardButtonComponent],
+  encapsulation: ViewEncapsulation.ShadowDom,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (cssHref()) {
+    <link rel="stylesheet" [href]="cssHref()!" />
+    }
+
+    <div class="space-y-3">
+      <div class="text-lg font-semibold">MFE Angular + ZardUI (Shadow)</div>
+      <div class="muted">
+        user: {{ ctx()?.user?.id ?? 'anonymous' }} | locale: {{ ctx()?.locale ?? '-' }} | theme:
+        {{ ctx()?.theme ?? '-' }}
+      </div>
+      <div class="text-xs opacity-70">assetBase: {{ ctx()?.assetBase ?? '-' }}</div>
+
+      <z-button (click)="go()">Ir pra /settings</z-button>
+    </div>
+  `,
+})
+export class MfeHello {
+  private readonly sanitizer = inject(DomSanitizer);
+
+  private readonly ctxSig = signal<ShellContext | null>(null);
+
+  readonly ctx = computed(() => this.ctxSig());
+
+  readonly cssHref = computed<SafeResourceUrl | null>(() => {
+    const c = this.ctxSig();
+    const url = c?.assetBase
+      ? `${c.assetBase}/mfe-shadow.css`
+      : `${environment.origin}/mfe-tailwind.css`;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  });
+
+  @Input()
+  set context(value: ShellContext) {
+    this.ctxSig.set(value);
+  }
+
+  go() {
+    this.ctxSig()?.capabilities?.navigate('/settings');
+  }
+}
